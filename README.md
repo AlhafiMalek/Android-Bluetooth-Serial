@@ -1,54 +1,64 @@
-# Android Bluetooth Serial 🔵
+# Android Bluetooth Serial & Helper 📱
 
-A robust helper class for handling Bluetooth Serial Port Profile (SPP) connections on Android. It simplifies device discovery, connection management, and data transmission (Strings/Bytes) without blocking the UI thread.
+A simplified Android library that handles the entire Bluetooth connection workflow. It includes a **Helper class** to automatically scan/select paired devices via a dialog, and a **Serial class** to handle the background socket connection and data transmission.
 
 [![Documentation](https://img.shields.io/badge/Documentation-View_Site-blue?style=for-the-badge&logo=google-chrome)](https://www.malekalhafi.com/projects/bt-serial.html)
 
 **View full documentation:** [https://www.malekalhafi.com/projects/bt-serial.html](https://www.malekalhafi.com/projects/bt-serial.html)
 
 ## Features
-- **Easy Connection:** Connect to paired devices by name or MAC address.
-- **Async Communication:** Handles reading/writing in background threads.
-- **Event Listeners:** simple callbacks for `OnConnected`, `OnDataReceived`, and `OnError`.
-- **Auto-formatting:** Option to append newlines (`\n` or `\r\n`) automatically.
+- **UI Helper:** Built-in `AlertDialog` to show paired devices and select one.
+- **Auto-Connect:** Handles the `UUID` and socket creation automatically.
+- **Simple IO:** Easy methods like `PrintLine` and `Write` for sending data to Arduino/Microcontrollers.
 
 ## Installation
-1. Copy `BluetoothSerial.java` to your project.
+1. Copy `BluetoothSerial.java` and `BluetoothHelper.java` to your project.
 2. Add permissions to `AndroidManifest.xml`:
    ```xml
    <uses-permission android:name="android.permission.BLUETOOTH" />
    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-   <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+
 # Usage
-## Initialize 
+## Select a Device (Activity A)
+​Use BluetoothHelper to show a list of paired devices. When the user picks one, it automatically starts your next Activity with the MAC address.
 ```java
-BluetoothSerial bt = new BluetoothSerial(context, new BluetoothSerial.BluetoothDelegate() {
-    @Override
-    public void onBluetoothConnected() {
-        Toast.makeText(context, "Connected!", Toast.LENGTH_SHORT).show();
-    }
+BluetoothHelper btHelper = new BluetoothHelper();
 
-    @Override
-    public void onBluetoothDataReceived(String message) {
-        Log.d("BT", "Received: " + message);
-    }
-
-    @Override
-    public void onBluetoothError(String error) {
-        Log.e("BT", "Error: " + error);
-    }
-});
-
+// Check if BT is on, and show dialog
+// Pass 'this' (current activity) and the Intent for the NEXT activity
+Intent intent = new Intent(this, ControlActivity.class);
+btHelper.Default(this, intent); 
 ```
-## Connect
+## Connect and Send Data
+​In your second activity (e.g., ControlActivity), retrieve the MAC address and start the connection.
 ```java
-// Connect to specific device MAC address (HC-05/HC-06)
-bt.connect("98:D3:31:FD:15:C1");
-```
-## Send Data
-``` java
-bt.send("Hello Arduino!"); 
-// Or send bytes
-bt.send(new byte[]{0x01, 0x02});
+public class ControlActivity extends Activity {
+    
+    BluetoothSerial btSerial = new BluetoothSerial();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // 1. Get MAC Address passed from the Helper
+        String macAddress = getIntent().getStringExtra("MAC");
+        
+        // 2. Begin Connection (Shows "Connecting..." dialog automatically)
+        btSerial.Begin(macAddress, this);
+    }
+
+    // Example: Send data when a button is clicked
+    public void onLightOn() {
+        if(btSerial.isConnected) {
+            btSerial.PrintLine("LIGHT_ON"); // Sends string + newline
+        }
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        btSerial.Close(); // Clean up connection
+    }
+}
+
 ```
